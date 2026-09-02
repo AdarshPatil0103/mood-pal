@@ -35,25 +35,22 @@ function tone(
   osc.stop(ac.currentTime + duration)
 }
 
-export function pokeSound(anger: number) {
-  const f = 220 + anger * 4
-  tone(f, 0.12, 'square', 0.05, f * 0.6)
+export function throwSound() {
+  tone(240, 0.18, 'square', 0.05, 90)
 }
 
-export function petSound() {
-  tone(520, 0.16, 'sine', 0.05, 720)
-  tone(780, 0.2, 'triangle', 0.03, 980)
+export function splatSound() {
+  tone(160, 0.22, 'sawtooth', 0.06, 50)
 }
 
-export function boomSound() {
-  tone(180, 0.35, 'sawtooth', 0.07, 60)
-  tone(90, 0.5, 'square', 0.05, 40)
+export function bangSound() {
+  tone(90, 0.28, 'square', 0.07, 40)
+  tone(420, 0.08, 'triangle', 0.04)
 }
 
 export function startSound() {
   tone(392, 0.12, 'triangle', 0.05)
   setTimeout(() => tone(523, 0.14, 'triangle', 0.05), 90)
-  setTimeout(() => tone(659, 0.18, 'triangle', 0.05), 180)
 }
 
 export function unlockAudio() {

@@ -1,192 +1,168 @@
-export type Screen = 'title' | 'play' | 'over'
+export type Screen = 'reason' | 'intensity' | 'instrument' | 'hits' | 'play' | 'over'
 
-export type Mood =
-  | 'sleepy'
-  | 'calm'
-  | 'hmm'
-  | 'grumpy'
-  | 'steaming'
-  | 'volcanic'
+export type Intensity = 'light' | 'hard' | 'extreme'
+
+export type Instrument =
+  | 'rotten-fruits'
+  | 'rotten-eggs'
+  | 'spoons-forks'
+  | 'kitchen-utensils'
+  | 'gun'
+  | 'knife'
+
+export interface Projectile {
+  id: number
+  sx: number
+  sy: number
+  tx: number
+  ty: number
+  t: number
+  glyph: string
+  kind: Instrument
+}
 
 export interface GameState {
   screen: Screen
-  anger: number
-  score: number
-  combo: number
-  comboTimer: number
-  timeAlive: number
-  pokes: number
-  pets: number
+  reason: string
+  intensity: Intensity | null
+  instrument: Instrument | null
+  hitGoal: number
+  hitsDone: number
   lastTick: number
-  petHold: boolean
   shake: number
   toast: string | null
   toastTimer: number
-  nextAnnoyance: number
-  best: number
-  lastRun: { score: number; timeAlive: number; pokes: number } | null
+  photoUrl: string
+  projectiles: Projectile[]
+  splat: number
 }
 
-const BEST_KEY = 'mochi-anger-best'
+export const TARGET_NAME = 'Aadu'
+export const PHOTO_PATH = './aadu.jpg'
+export const PHOTO_FALLBACK = './aadu.svg'
+export const MAIL_TO = 'patiladarsh65@gmail.com'
 
-export function moodFromAnger(anger: number): Mood {
-  if (anger < 12) return 'sleepy'
-  if (anger < 28) return 'calm'
-  if (anger < 48) return 'hmm'
-  if (anger < 68) return 'grumpy'
-  if (anger < 88) return 'steaming'
-  return 'volcanic'
+export const INTENSITY_OPTIONS: { id: Intensity; label: string; blurb: string }[] = [
+  {
+    id: 'light',
+    label: 'Wants to just hit someone lightly',
+    blurb: 'Messy, petty, cartoon splats.',
+  },
+  {
+    id: 'hard',
+    label: 'Wants to just hit someone hard',
+    blurb: 'Kitchen drawer energy.',
+  },
+  {
+    id: 'extreme',
+    label: 'Kill someone',
+    blurb: 'Cartoon only. This is a venting toy, not real life.',
+  },
+]
+
+export const INSTRUMENTS: Record<Intensity, { id: Instrument; label: string; glyph: string }[]> = {
+  light: [
+    { id: 'rotten-fruits', label: 'Rotten fruits', glyph: '🍅' },
+    { id: 'rotten-eggs', label: 'Rotten eggs', glyph: '🥚' },
+  ],
+  hard: [
+    { id: 'spoons-forks', label: 'Spoon & forks', glyph: '🍴' },
+    { id: 'kitchen-utensils', label: 'Kitchen utensils', glyph: '🍳' },
+  ],
+  extreme: [
+    { id: 'gun', label: 'Gun', glyph: '💥' },
+    { id: 'knife', label: 'Knife', glyph: '🔪' },
+  ],
 }
 
-export function moodCopy(mood: Mood): { label: string; hint: string } {
-  switch (mood) {
-    case 'sleepy':
-      return { label: 'Sleepy', hint: 'Mochi is snug. A tiny poke is still a poke.' }
-    case 'calm':
-      return { label: 'Chill', hint: 'All good. Don’t push your luck.' }
-    case 'hmm':
-      return { label: 'Hmm…', hint: 'The eyebrow is doing a thing.' }
-    case 'grumpy':
-      return { label: 'Grumpy', hint: 'Pet. Immediately. Maybe snacks.' }
-    case 'steaming':
-      return { label: 'Steaming', hint: 'Ears are hot. Anger is a soup now.' }
-    case 'volcanic':
-      return { label: 'Volcanic', hint: 'One more poke and we all live with it.' }
-  }
-}
-
-export function loadBest(): number {
-  try {
-    return Number(localStorage.getItem(BEST_KEY) ?? '0') || 0
-  } catch {
-    return 0
-  }
-}
-
-function saveBest(score: number) {
-  try {
-    localStorage.setItem(BEST_KEY, String(score))
-  } catch {
-    /* private mode */
-  }
-}
+let projId = 1
 
 export function createState(): GameState {
   return {
-    screen: 'title',
-    anger: 8,
-    score: 0,
-    combo: 0,
-    comboTimer: 0,
-    timeAlive: 0,
-    pokes: 0,
-    pets: 0,
+    screen: 'reason',
+    reason: '',
+    intensity: null,
+    instrument: null,
+    hitGoal: 5,
+    hitsDone: 0,
     lastTick: performance.now(),
-    petHold: false,
     shake: 0,
-    toast: null,
-    toastTimer: 0,
-    nextAnnoyance: 6 + Math.random() * 5,
-    best: loadBest(),
-    lastRun: null,
+    toast: `Hint: “someone” is none other than ${TARGET_NAME}.`,
+    toastTimer: 4,
+    photoUrl: PHOTO_PATH,
+    projectiles: [],
+    splat: 0,
   }
 }
 
-const ANNOYANCES = [
-  'A mosquito hummed the wrong song.',
-  'Someone said “calm down.”',
-  'Sock was slightly damp.',
-  'The wifi buffered. Once.',
-  'A leaf touched a toe.',
-  'They remembered that one typo.',
-  'The fridge made a judgmental noise.',
-  'A pigeon made eye contact.',
-]
+export function setReason(state: GameState, reason: string) {
+  state.reason = reason
+}
 
-export function startRun(state: GameState) {
-  state.screen = 'play'
-  state.anger = 10
-  state.score = 0
-  state.combo = 0
-  state.comboTimer = 0
-  state.timeAlive = 0
-  state.pokes = 0
-  state.pets = 0
-  state.lastTick = performance.now()
-  state.petHold = false
+export function pickIntensity(state: GameState, intensity: Intensity) {
+  state.intensity = intensity
+  state.instrument = null
+  state.screen = 'instrument'
+}
+
+export function pickInstrument(state: GameState, instrument: Instrument) {
+  if (!state.intensity) return
+  const allowed = INSTRUMENTS[state.intensity].some((item) => item.id === instrument)
+  if (!allowed) return
+  state.instrument = instrument
+  state.screen = 'hits'
+}
+
+export function setHitGoal(state: GameState, count: number) {
+  state.hitGoal = Math.min(10, Math.max(1, Math.round(count)))
+}
+
+export function beginExecution(state: GameState) {
+  if (!state.intensity || !state.instrument || !state.reason.trim()) return
+  state.hitsDone = 0
+  state.projectiles = []
+  state.splat = 0
   state.shake = 0
-  state.toast = 'Be gentle… or don’t.'
-  state.toastTimer = 1.6
-  state.nextAnnoyance = 7 + Math.random() * 6
+  state.screen = 'play'
+  state.toast = `${TARGET_NAME}. ${state.hitGoal} hit${state.hitGoal === 1 ? '' : 's'} to cool off.`
+  state.toastTimer = 2.4
 }
 
-export function poke(state: GameState) {
-  if (state.screen !== 'play') return
-  const mood = moodFromAnger(state.anger)
-  const spike =
-    mood === 'sleepy'
-      ? 7
-      : mood === 'calm'
-        ? 9
-        : mood === 'hmm'
-          ? 11
-          : mood === 'grumpy'
-            ? 13
-            : mood === 'steaming'
-              ? 16
-              : 20
-  state.anger = Math.min(100, state.anger + spike)
-  state.comboTimer = 1.15
-  state.combo += 1
-  state.pokes += 1
-  const points = Math.round(10 * state.combo * (1 + state.anger / 120))
-  state.score += points
-  state.shake = Math.min(18, 6 + state.combo)
-  if (state.anger >= 100) tantrum(state)
-}
-
-export function beginPet(state: GameState) {
-  if (state.screen !== 'play') return
-  state.petHold = true
-}
-
-export function endPet(state: GameState) {
-  state.petHold = false
-}
-
-export function petPulse(state: GameState) {
-  if (state.screen !== 'play') return
-  state.anger = Math.max(0, state.anger - 8)
-  state.pets += 1
-  state.combo = 0
-  state.comboTimer = 0
-  state.shake = 3
-  state.score += 2
-}
-
-function tantrum(state: GameState) {
-  const timeBonus = Math.floor(state.timeAlive * 4)
-  const finalScore = state.score + timeBonus
-  state.score = finalScore
-  if (finalScore > state.best) {
-    state.best = finalScore
-    saveBest(finalScore)
+export function instrumentGlyph(instrument: Instrument): string {
+  for (const group of Object.values(INSTRUMENTS)) {
+    const found = group.find((item) => item.id === instrument)
+    if (found) return found.glyph
   }
-  state.lastRun = {
-    score: finalScore,
-    timeAlive: state.timeAlive,
-    pokes: state.pokes,
-  }
-  state.screen = 'over'
-  state.petHold = false
-  state.shake = 22
-  state.toast = null
+  return '💢'
+}
+
+export function launchHit(state: GameState) {
+  if (state.screen !== 'play' || !state.instrument) return
+  if (state.hitsDone >= state.hitGoal) return
+
+  const fromGun = state.instrument === 'gun'
+  const sx = fromGun ? -8 : 18 + Math.random() * 64
+  const sy = fromGun ? 38 + Math.random() * 24 : 92
+  const tx = 28 + Math.random() * 44
+  const ty = 22 + Math.random() * 42
+
+  state.projectiles.push({
+    id: projId++,
+    sx,
+    sy,
+    tx,
+    ty,
+    t: 0,
+    glyph: instrumentGlyph(state.instrument),
+    kind: state.instrument,
+  })
 }
 
 export function tick(state: GameState, now: number) {
   const dt = Math.min(0.05, (now - state.lastTick) / 1000)
   state.lastTick = now
-  if (state.shake > 0) state.shake = Math.max(0, state.shake - dt * 40)
+  if (state.shake > 0) state.shake = Math.max(0, state.shake - dt * 36)
+  if (state.splat > 0) state.splat = Math.max(0, state.splat - dt * 1.6)
 
   if (state.toastTimer > 0) {
     state.toastTimer -= dt
@@ -195,35 +171,34 @@ export function tick(state: GameState, now: number) {
 
   if (state.screen !== 'play') return
 
-  state.timeAlive += dt
+  const speed = state.instrument === 'gun' ? 3.4 : state.instrument === 'knife' ? 2.6 : 2.1
+  const landed: number[] = []
 
-  if (state.comboTimer > 0) {
-    state.comboTimer -= dt
-    if (state.comboTimer <= 0) state.combo = 0
+  for (const p of state.projectiles) {
+    p.t = Math.min(1, p.t + dt * speed)
+    if (p.t >= 1) landed.push(p.id)
   }
 
-  // Impatience: the calmer they are, the slower the rise. High anger snowballs.
-  const rise = 1.4 + (state.anger / 100) * 4.2
-  state.anger = Math.min(100, state.anger + rise * dt)
-
-  if (state.petHold) {
-    state.anger = Math.max(0, state.anger - 18 * dt)
-  }
-
-  state.nextAnnoyance -= dt
-  if (state.nextAnnoyance <= 0) {
-    const line = ANNOYANCES[Math.floor(Math.random() * ANNOYANCES.length)]
-    state.toast = line
-    state.toastTimer = 2.2
-    state.anger = Math.min(100, state.anger + 9 + Math.random() * 8)
-    state.shake = 10
-    state.nextAnnoyance = 6 + Math.random() * 8
-    if (state.anger >= 100) tantrum(state)
+  if (landed.length) {
+    state.projectiles = state.projectiles.filter((p) => !landed.includes(p.id))
+    for (let i = 0; i < landed.length; i++) {
+      state.hitsDone += 1
+      state.shake = Math.min(16, 7 + state.hitsDone)
+      state.splat = 1
+      if (state.hitsDone >= state.hitGoal) {
+        state.screen = 'over'
+        state.toast = null
+        state.projectiles = []
+        break
+      }
+    }
   }
 }
 
-export function formatTime(seconds: number): string {
-  const m = Math.floor(seconds / 60)
-  const s = Math.floor(seconds % 60)
-  return `${m}:${s.toString().padStart(2, '0')}`
+export function remainingHits(state: GameState): number {
+  return Math.max(0, state.hitGoal - state.hitsDone)
+}
+
+export function resetRun(state: GameState) {
+  Object.assign(state, createState())
 }
