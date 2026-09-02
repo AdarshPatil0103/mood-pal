@@ -2,6 +2,7 @@ import './style.css'
 import {
   INSTRUMENTS,
   INTENSITY_OPTIONS,
+  MAIL_FROM,
   MAIL_TO,
   PHOTO_PATH,
   PHOTO_FALLBACK,
@@ -19,13 +20,15 @@ import {
   type Intensity,
   type Instrument,
 } from './game'
-import { bangSound, splatSound, startSound, throwSound, unlockAudio } from './audio'
+import { impactSound, launchSound, startSound, unlockAudio } from './audio'
 
 const app = document.querySelector<HTMLDivElement>('#app')!
 const state = createState()
 let lastUi = ''
 let lastHits = -1
 let lastSplat = 0
+let mailStatus: 'idle' | 'sending' | 'sent' | 'error' = 'idle'
+let mailAttempted = false
 
 function projectilePos(p: { sx: number; sy: number; tx: number; ty: number; t: number }) {
   const e = 1 - (1 - p.t) * (1 - p.t)
@@ -152,14 +155,22 @@ function overlayHtml(): string {
   }
 
   if (state.screen === 'over') {
+    const mailNote =
+      mailStatus === 'sending'
+        ? `<p class="after-gap">Sending your reason to ${MAIL_TO}…</p>`
+        : mailStatus === 'sent'
+          ? `<p class="after-gap">Your reason was emailed to ${MAIL_TO} from the site (${MAIL_FROM}).</p>`
+          : mailStatus === 'error'
+            ? `<p class="after-gap">Couldn’t send from the site. Use the button to open mail to ${MAIL_TO}.</p>
+          <button class="start mail" type="button" data-action="mail">Send reason by email</button>`
+            : `<p class="after-gap">Your reason will be emailed to ${MAIL_TO}.</p>`
     return `
       <div class="overlay setup">
         <div>
           <h2>How do you feel now?</h2>
           <p>If you’re still angry, you can play again.</p>
           <button class="retry" type="button" data-action="reset">Still angry — play again</button>
-          <p class="after-gap">If not, send Adarsh the reason you typed.</p>
-          <button class="start mail" type="button" data-action="mail">I’m not angry — email Adarsh</button>
+          ${mailNote}
         </div>
       </div>
     `
@@ -217,13 +228,11 @@ function paint() {
 }
 
 function fire() {
-  if (state.screen !== 'play') return
+  if (state.screen !== 'play' || !state.instrument) return
   unlockAudio()
-  const before = state.hitsDone
+  const before = state.projectiles.length
   launchHit(state)
-  if (state.instrument === 'gun') bangSound()
-  else throwSound()
-  if (state.hitsDone > before) splatSound()
+  if (state.projectiles.length > before) launchSound(state.instrument)
 }
 
 app.addEventListener('click', (event) => {
@@ -271,15 +280,13 @@ app.addEventListener('click', (event) => {
   }
   if (action === 'reset') {
     resetRun(state)
+    mailStatus = 'idle'
+    mailAttempted = false
     lastUi = 'dirty'
     return
   }
   if (action === 'mail') {
-    const subject = encodeURIComponent('Anger vent')
-    const body = encodeURIComponent(
-      `Hi Adarsh,\n\nI'm not angry anymore.\n\nReason:\n${state.reason.trim() || '(no reason written)'}\n`,
-    )
-    window.location.href = `mailto:${MAIL_TO}?subject=${subject}&body=${body}`
+    openMailtoFallback()
     return
   }
 })
@@ -288,12 +295,68 @@ el.photoWrap.addEventListener('click', () => {
   if (state.screen === 'play') fire()
 })
 
+function reasonText() {
+  return state.reason.trim() || '(no reason written)'
+}
+
+function angerTypeText() {
+  const opt = INTENSITY_OPTIONS.find((item) => item.id === state.intensity)
+  return opt?.label ?? '(none selected)'
+}
+
+function mailFields() {
+  return {
+    reason: reasonText(),
+    anger_type: angerTypeText(),
+  }
+}
+
+function openMailtoFallback() {
+  const { reason, anger_type } = mailFields()
+  const subject = encodeURIComponent('Anger vent')
+  const body = encodeURIComponent(
+    `From: ${MAIL_FROM} (mood-pal on GitHub Pages)\nTo: ${MAIL_TO}\n\nType of anger: ${anger_type}\n\nReason:\n${reason}\n`,
+  )
+  window.location.href = `mailto:${MAIL_TO}?subject=${subject}&body=${body}`
+}
+
+async function sendReasonFromPages() {
+  if (mailAttempted) return
+  mailAttempted = true
+  mailStatus = 'sending'
+  lastUi = 'dirty'
+  const { reason, anger_type } = mailFields()
+  try {
+    const res = await fetch(`https://formsubmit.co/ajax/${MAIL_TO}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({
+        _subject: 'Anger vent — reason',
+        _template: 'table',
+        _captcha: false,
+        name: 'Mood Pal',
+        email: MAIL_FROM,
+        _replyto: MAIL_FROM,
+        site: 'https://adarshpatil0103.github.io/mood-pal/',
+        anger_type,
+        message: `Type of anger: ${anger_type}\n\nReason:\n${reason}`,
+      }),
+    })
+    mailStatus = res.ok ? 'sent' : 'error'
+  } catch {
+    mailStatus = 'error'
+  }
+  lastUi = 'dirty'
+}
+
 function loop(now: number) {
-  const beforeHits = state.hitsDone
   const beforeScreen = state.screen
-  tick(state, now)
-  if (state.hitsDone > beforeHits) splatSound()
-  if (beforeScreen === 'play' && state.screen === 'over') lastUi = 'dirty'
+  const impacts = tick(state, now)
+  impacts.forEach((kind, i) => impactSound(kind, i * 0.04))
+  if (beforeScreen === 'play' && state.screen === 'over') {
+    lastUi = 'dirty'
+    void sendReasonFromPages()
+  }
   paint()
   requestAnimationFrame(loop)
 }

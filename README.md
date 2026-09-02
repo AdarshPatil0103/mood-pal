@@ -13,11 +13,11 @@ This is a silly venting toy. It does not simulate real harm.
    - Kill someone → gun or knife (cartoon impact only)
 3. Pick how many hits (1–10) will cool the anger.
 4. Tap the photo / **Hit Aadu**. Items fly at the picture. After the last hit, it stops.
-5. If still angry, play again. If not, **I’m not angry — email Adarsh** opens a mail to `patiladarsh65@gmail.com` with the reason.
+5. After the last hit, the reason is emailed to `atreus0103@gmail.com` from the site (reply-to `patiladarsh65@gmail.com`). If that send fails, you can open mail instead. If still angry, play again.
 
 Hint in the UI: someone is none other than Aadu.
 
-The portrait is bundled at `public/aadu.svg` and loads by itself.
+The portrait is bundled at `public/aadu.jpg`.
 
 ## Run locally
 

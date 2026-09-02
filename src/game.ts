@@ -40,7 +40,8 @@ export interface GameState {
 export const TARGET_NAME = 'Aadu'
 export const PHOTO_PATH = './aadu.jpg'
 export const PHOTO_FALLBACK = './aadu.svg'
-export const MAIL_TO = 'patiladarsh65@gmail.com'
+export const MAIL_TO = 'atreus0103@gmail.com'
+export const MAIL_FROM = 'patiladarsh65@gmail.com'
 
 export const INTENSITY_OPTIONS: { id: Intensity; label: string; blurb: string }[] = [
   {
@@ -158,7 +159,7 @@ export function launchHit(state: GameState) {
   })
 }
 
-export function tick(state: GameState, now: number) {
+export function tick(state: GameState, now: number): Instrument[] {
   const dt = Math.min(0.05, (now - state.lastTick) / 1000)
   state.lastTick = now
   if (state.shake > 0) state.shake = Math.max(0, state.shake - dt * 36)
@@ -169,7 +170,7 @@ export function tick(state: GameState, now: number) {
     if (state.toastTimer <= 0) state.toast = null
   }
 
-  if (state.screen !== 'play') return
+  if (state.screen !== 'play') return []
 
   const speed = state.instrument === 'gun' ? 3.4 : state.instrument === 'knife' ? 2.6 : 2.1
   const landed: number[] = []
@@ -178,6 +179,8 @@ export function tick(state: GameState, now: number) {
     p.t = Math.min(1, p.t + dt * speed)
     if (p.t >= 1) landed.push(p.id)
   }
+
+  const impacts: Instrument[] = state.projectiles.filter((p) => landed.includes(p.id)).map((p) => p.kind)
 
   if (landed.length) {
     state.projectiles = state.projectiles.filter((p) => !landed.includes(p.id))
@@ -193,6 +196,8 @@ export function tick(state: GameState, now: number) {
       }
     }
   }
+
+  return impacts
 }
 
 export function remainingHits(state: GameState): number {
