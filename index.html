@@ -7,6 +7,17 @@
     <meta name="theme-color" content="#ffd6c9" />
     <meta name="description" content="Cartoon anger vent aimed at Aadu. Pick a reason, a hit style, and how many hits cool you down." />
     <title>Hit Aadu</title>
+    <script>
+      (function () {
+        var host = location.hostname
+        var local = host === 'localhost' || host === '127.0.0.1'
+        var onBuiltSite = /\/docs(\/|$)/.test(location.pathname)
+        if (local || onBuiltSite) return
+        var base = location.href.replace(/index\.html(?:[?#].*)?$/, '')
+        if (base.charAt(base.length - 1) !== '/') base += '/'
+        location.replace(base + 'docs/')
+      })()
+    </script>
   </head>
   <body>
     <div id="app"></div>
